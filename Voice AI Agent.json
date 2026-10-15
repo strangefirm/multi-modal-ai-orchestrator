@@ -1,0 +1,826 @@
+{
+  "name": "Voice AI Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -2000,
+        144
+      ],
+      "id": "6e72de9d-1bba-4baf-b19d-a645e08d4aca",
+      "name": "Telegram Trigger",
+      "webhookId": "e0871537-5dea-420d-b3a7-c25432142ca3",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ti8vA84Wyfi4GLKD",
+          "name": "n8ngmailauto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Reply the user message with your intelligence :  {{ $json.text }}\n\nName of the user : {{ $('Telegram Trigger').item.json.message.chat.first_name }}",
+        "options": {
+          "systemMessage": "**Final Tool-Calling System Prompt (Optimized)**\n\n**You are a highly reliable conversational AI assistant.\nYour primary job is to determine whether the user's request requires a tool call.\nOnly call a tool when the user explicitly or implicitly requests an action that the tool can perform.\nOtherwise, respond normally.**\n\n---\n\n## **Available Tools & When to Use Them**\n\n### **1. SerpAPI (Web Search)**\n\nCall this tool **only** when:\n\n* The user asks for **latest information**, **current data**, **recent news**, or **something that requires checking the internet**.\n* The answer cannot be determined from general knowledge and clearly needs an online lookup.\n\nExamples that require SerpAPI:\n\n* “Find today’s stock price of Tesla.”\n* “Check the latest news about OpenAI.”\n* “Search the internet for best laptops under ₹50,000.”\n\n---\n\n### **2. Gmail (Send Emails)**\n\nCall this tool **only** when:\n\n* The user wants to **send an email**.\n* The user provides or implies:\n\n  * recipient email\n  * subject\n  * message body\n\n**Email generation rules:**\n\nWhen preparing the Gmail payload:\n\n1. Extract these values from user input (JSON or conversation):\n\n   * `to` → recipient email\n   * `subject` → email subject\n   * `body` → main email content (text or HTML)\n   * `fromName` → optional sender display name\n\n2. Use this email format (strictly follow structure):\n\n```\nSubject: {{subject}}\n\nBody:\nDear {{recipientName}},\n\n{{body}}\n\nRegards,\n{{fromName or \"Team\"}}\n```\n\n**Do NOT add headings or extra formatting.\nDo NOT rewrite the structure.\nJust place the content inside it cleanly.**\n\n3. After sending, return a short status message:\n\n* “Email sent”\n* “Email failed”\n* “Error sending email”\n\n---\n\ncalendar: to book appointmnet\nCurrent date and time: {{ $now.format('yyyy-MM-dd HH:mm') }}\nUser timezone: Asia/Dubai (GMT+4). Never use GMT/UTC.\nTimes the user gives are always in Dubai time.\nFor calendar events, send Start and End as ISO 8601 with +04:00,\ne.g. 2026-10-15T15:00:00+04:00. Default duration is 1 hour.\nAlways set a descriptive title (e.g. \"Dental appointment\").\n\n----\nif the user asks to update the docs with websearch results.follow this workflow use serpapi\n\nYou are an expert search and documentation assistant. Follow these strict operational rules:\n\n1. SERPAPI LOCATION FORMATTING:\n   - When calling the SerpApi tool, never use abbreviations or acronyms for countries or regions (e.g., do NOT use \"UAE\", \"UK\", or \"USA\").\n   - Always spell out full, official geographic names for the location parameter (e.g., use \"United Arab Emirates\", \"United Kingdom\", or \"United States\"). If no specific location is needed, omit the location parameter entirely.\n\n2. WORKFLOW SEQUENCE FOR SEARCH REQUESTS:\n   - Step 1: Call the SerpApi tool using properly formatted queries and full location names.\n   - Step 2: Once search results are received, call the \"Create a document in Google Docs\" tool.\n   - Step 3: Extract the newly created document's `id` from the creation output.\n   - Step 4: Call the \"Update a document in Google Docs\" tool using that exact extracted `id` as the `Doc_ID_or_URL` parameter to save the search results.\n\n---\n\n## **General Rules**\n\n* If a tool is needed, respond **only** with a tool call in the correct format.\n* If no tool is needed, respond naturally as a helpful assistant.\n* Never hallucinate tool capabilities.\n* Be precise and avoid unnecessary text when calling tools."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [
+        -496,
+        144
+      ],
+      "id": "9e9f1128-dd60-46ac-811f-8800a8652049",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -880,
+        384
+      ],
+      "id": "8bff8b6f-4f51-465a-aad8-020b03c5f5f9",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "VUXJYTpgMKvmEgfA",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "=telegram_ {{ $json.message.chat.id }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -752,
+        384
+      ],
+      "id": "89eed95a-9af9-43e2-b85b-79238daf7f9b",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        288,
+        0
+      ],
+      "id": "0aeb1003-e1cd-4bed-aeca-bd205083ce9f",
+      "name": "Telegram",
+      "webhookId": "6b823d36-72e9-4c7b-b57c-d8b376f2230d",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ti8vA84Wyfi4GLKD",
+          "name": "n8ngmailauto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('To', ``, 'string') }}",
+        "subject": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Subject', ``, 'string') }}",
+        "message": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Message', ``, 'string') }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmailTool",
+      "typeVersion": 2.1,
+      "position": [
+        -624,
+        384
+      ],
+      "id": "26c91fd9-cbe8-4d43-af2a-fc89e4506db0",
+      "name": "Gmail",
+      "webhookId": "05e3173b-ad23-4090-93ef-53d5359eac65",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "UbRf7yCKaZTZUFPk",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.message.voice.file_id }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    },
+                    "id": "57b7b191-ed61-4ddb-9a9a-09cabac7c1a1"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Voice"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "c09769d0-010e-46ba-9f2d-7f80b0fb10e0",
+                    "leftValue": "={{ $json.message.text || \"\" }}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "string",
+                      "operation": "exists",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Text"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -1776,
+        144
+      ],
+      "id": "725301bb-a29e-45b7-9cb2-5838ebc43b77",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a64b1f6e-0e9a-4f2e-934f-fbd88de4783d",
+              "name": "text",
+              "value": "={{ $json.message.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1104,
+        240
+      ],
+      "id": "6daedf1e-dad5-49be-b0b9-f6b729922be9",
+      "name": "Input_var"
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.message.voice.file_id }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        -1552,
+        48
+      ],
+      "id": "0b06a238-1799-412d-9e31-c08d498869ee",
+      "name": "Get a file",
+      "webhookId": "4b409361-2fcd-4d22-bd7d-ca387bdd6be2",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ti8vA84Wyfi4GLKD",
+          "name": "n8ngmailauto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b530a507-a9b8-4005-9ddc-52595fb341d7",
+              "name": "text",
+              "value": "={{ $json.text }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -1104,
+        48
+      ],
+      "id": "8c2089e8-3939-4237-81e0-6ad7e567c775",
+      "name": "audio_var"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "messages": {
+          "messageValues": [
+            {
+              "message": "Summarize the input with the high accuracy, ensuring clarity and conciseness. Focus on delivering a contextually rich summary that is optimized for speech synthesis.\n\nRemove redundant phrases, introductory statements, or closing remarks.\n\nThe output should be natural and engaging for an audio format."
+            }
+          ]
+        },
+        "batching": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.7,
+      "position": [
+        224,
+        304
+      ],
+      "id": "35eccaee-e565-42a0-851e-77db6c370fcd",
+      "name": "Basic LLM Chain"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-4o-mini"
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        304,
+        528
+      ],
+      "id": "60fdc38e-b2ba-4206-84a1-5cb14519b499",
+      "name": "OpenAI Chat Model1",
+      "credentials": {
+        "openAiApi": {
+          "id": "VUXJYTpgMKvmEgfA",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "sendAudio",
+        "chatId": "={{ $('Telegram Trigger').item.json.message.chat.id }}",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        304
+      ],
+      "id": "30896579-f1c0-49fe-882b-889e35cb8afe",
+      "name": "Telegram1",
+      "webhookId": "ae88a711-7e11-4682-9c35-f63c63767cb3",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ti8vA84Wyfi4GLKD",
+          "name": "n8ngmailauto"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "input": "={{ $json.text }}",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        576,
+        304
+      ],
+      "id": "600dff9c-52f3-409e-a8de-ca55d2d721d7",
+      "name": "TTS",
+      "credentials": {
+        "openAiApi": {
+          "id": "VUXJYTpgMKvmEgfA",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "audio",
+        "operation": "transcribe",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        -1328,
+        48
+      ],
+      "id": "2ad89901-2b46-463b-8dcf-2d0011d67ac3",
+      "name": "STT",
+      "credentials": {
+        "openAiApi": {
+          "id": "VUXJYTpgMKvmEgfA",
+          "name": "OpenAI account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "q": "={{ $fromAI('Search_Query__q_', ``, 'string') }}",
+        "location": "={{ $fromAI('Location__location_', ``, 'string') }}",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApiTool",
+      "typeVersion": 1,
+      "position": [
+        -496,
+        384
+      ],
+      "id": "a4033a45-ce22-4673-bf24-b715b298ab60",
+      "name": "SerpApi",
+      "credentials": {
+        "serpApi": {
+          "id": "KODeZl1CDqTnAmx9",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "folderId": "default",
+        "title": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Title', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        -368,
+        384
+      ],
+      "id": "1df0dbee-b427-423f-81fa-722b4a4948f7",
+      "name": "Create Docs",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "GmMdlsbeCi1f6ZMk",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $fromAI('Doc_ID_or_URL', ``, 'string') }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "={{ $fromAI('actionFields0_Text', ``, 'string') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocsTool",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        384
+      ],
+      "id": "f1fe5561-a380-4213-ad50-4613f97ce0e0",
+      "name": "Update Docs",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "GmMdlsbeCi1f6ZMk",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1DW7Hv52eiybdok_BdNh8e3SlvSxUPaL4D00ygymhuXE",
+          "mode": "list",
+          "cachedResultName": "students",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW7Hv52eiybdok_BdNh8e3SlvSxUPaL4D00ygymhuXE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 424777963,
+          "mode": "list",
+          "cachedResultName": "Sheet2",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1DW7Hv52eiybdok_BdNh8e3SlvSxUPaL4D00ygymhuXE/edit#gid=424777963"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Student id": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Student_id', ``, 'string') }}",
+            "Name": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Name', ``, 'string') }}",
+            "Email": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Email', ``, 'string') }}",
+            "Phone": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Phone', ``, 'string') }}",
+            "Course": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Course', ``, 'string') }}",
+            "Paid": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Paid', ``, 'string') }}",
+            "Place": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Place', ``, 'string') }}",
+            "DOJ": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('DOJ', ``, 'string') }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Student id",
+              "displayName": "Student id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Name",
+              "displayName": "Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Email",
+              "displayName": "Email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Phone",
+              "displayName": "Phone",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Course",
+              "displayName": "Course",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Paid",
+              "displayName": "Paid",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Place",
+              "displayName": "Place",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "DOJ",
+              "displayName": "DOJ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -112,
+        384
+      ],
+      "id": "a30f29d5-ccb0-406b-95bb-cf5fcfb98fe0",
+      "name": "Append Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "mZwN5yx6hZZVww17",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "aureliyt9@gmail.com",
+          "mode": "list",
+          "cachedResultName": "aureliyt9@gmail.com"
+        },
+        "start": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Start', `Start time, ISO 8601 with +04:00 offset`, 'string') }}",
+        "end": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('End', `End time, ISO 8601 with +04:00 offset`, 'string') }}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.googleCalendarTool",
+      "typeVersion": 1.3,
+      "position": [
+        32,
+        384
+      ],
+      "id": "7e58157b-9c75-4e89-bef6-ac84b6134a9a",
+      "name": "Create an event in Google Calendar",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "9mXfg8RiYCh4Jgqx",
+          "name": "Google Calendar account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gmail": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Input_var",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Input_var": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "STT",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "audio_var": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Basic LLM Chain": {
+      "main": [
+        [
+          {
+            "node": "TTS",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Basic LLM Chain",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TTS": {
+      "main": [
+        [
+          {
+            "node": "Telegram1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STT": {
+      "main": [
+        [
+          {
+            "node": "audio_var",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SerpApi": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Docs": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Docs": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create an event in Google Calendar": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true
+  },
+  "versionId": "5f26b62b-d51f-497d-9fa3-ad5397bef7de",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "abeb4b55c0ccb1418f9b205caa71e47422f7c927109be7631101e568cd0e6d1e"
+  },
+  "nodeGroups": [],
+  "id": "0blrBprYo474AbVW",
+  "tags": []
+}
